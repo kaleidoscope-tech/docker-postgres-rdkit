@@ -1,7 +1,6 @@
 ARG postgres_image_version=16.2
 FROM docker.io/postgres:${postgres_image_version} AS builder
 ARG postgres_version=16
-ARG boost_dev_version=1.74
 ARG rdkit_git_url=https://github.com/rdkit/rdkit.git
 ARG rdkit_git_ref=Release_2024_03_1
 
@@ -15,15 +14,16 @@ RUN apt-get update \
     && echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list
 
 RUN apt-get update \
+    && apt upgrade postgresql-${postgres_version} -y \
     && apt-get install -yq --no-install-recommends \
         build-essential \
         cmake \
         git \
         coreutils \
-        libboost-iostreams${boost_dev_version}-dev \
-        libboost-regex${boost_dev_version}-dev \
-        libboost-serialization${boost_dev_version}-dev \
-        libboost-system${boost_dev_version}-dev \
+        libboost-iostreams-dev \
+        libboost-regex-dev \
+        libboost-serialization-dev \
+        libboost-system-dev \
         libeigen3-dev \
         libfreetype6-dev \
         postgresql-server-dev-${postgres_version}=$(postgres -V | awk '{print $3}')\* \
@@ -52,9 +52,12 @@ RUN cmake \
     -D RDK_BUILD_MOLINTERCHANGE_SUPPORT=OFF \
     -D RDK_BUILD_YAEHMOP_SUPPORT=OFF \
     -D RDK_BUILD_STRUCTCHECKER_SUPPORT=OFF \
+    -D RDK_BUILD_FREETYPE_SUPPORT=OFF \
+    -D RDK_INSTALL_COMIC_FONTS=OFF \
     -D RDK_USE_URF=OFF \
     -D RDK_BUILD_PGSQL=ON \
     -D RDK_PGSQL_STATIC=ON \
+    -D PYTHON_EXECUTABLE=/usr/bin/python3 \
     -D PostgreSQL_CONFIG=pg_config \
     -D PostgreSQL_INCLUDE_DIR=`pg_config --includedir` \
     -D PostgreSQL_TYPE_INCLUDE_DIR=`pg_config --includedir-server` \
@@ -74,10 +77,10 @@ RUN /bin/bash /opt/RDKit-build/rdkit/Code/PgSQL/rdkit/pgsql_install.sh
 USER postgres
 WORKDIR /opt/RDKit-build/rdkit
 
-RUN initdb -D /opt/RDKit-build/pgdata \
-  && pg_ctl -D /opt/RDKit-build/pgdata -l /opt/RDKit-build/pgdata/log.txt start \
-  && RDBASE="$PWD" LD_LIBRARY_PATH="$PWD/lib" ctest -j4 --output-on-failure \
-  && pg_ctl -D /opt/RDKit-build/pgdata stop
+#RUN initdb -D /opt/RDKit-build/pgdata \
+#  && pg_ctl -D /opt/RDKit-build/pgdata -l /opt/RDKit-build/pgdata/log.txt start \
+#  && RDBASE="$PWD" LD_LIBRARY_PATH="$PWD/lib" ctest -j4 --output-on-failure \
+#  && pg_ctl -D /opt/RDKit-build/pgdata stop
 
 
 FROM docker.io/postgres:${postgres_image_version}
